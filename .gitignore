@@ -1,2 +1,5 @@
-Software.json.gz
 .DS_Store
+Software.json.gz
+meta_Software.json
+cc.en.300.bin
+*.npz
