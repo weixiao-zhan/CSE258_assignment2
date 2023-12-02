@@ -1,10 +1,7 @@
 .DS_Store
 Software.json.gz
 meta_Software.json
-<<<<<<< Updated upstream
 cc.en.300.bin
 *.npz
 .ipynb_checkpoints
 *.pickle
-=======
->>>>>>> Stashed changes
