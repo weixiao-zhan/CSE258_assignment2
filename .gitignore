@@ -5,3 +5,4 @@ cc.en.300.bin
 *.npz
 .ipynb_checkpoints
 *.pickle
+*.ckpt
