@@ -6,3 +6,4 @@ cc.en.300.bin
 .ipynb_checkpoints
 *.pickle
 *.ckpt
+*.png
