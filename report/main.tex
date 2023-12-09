@@ -1,0 +1,465 @@
+% This version of CVPR template is provided by Ming-Ming Cheng.
+% Please leave an issue if you found a bug:
+% https://github.com/MCG-NKU/CVPR_Template.
+
+%\documentclass[review]{cvpr}
+\documentclass[final]{cvpr}
+
+\usepackage{times}
+\usepackage{epsfig}
+\usepackage{graphicx}
+\usepackage[
+  tbtags
+]{amsmath}
+\usepackage[tight,footnotesize]{subfigure}
+\usepackage{subcaption}
+\usepackage{caption}
+\usepackage{amssymb}
+\usepackage{float}
+\usepackage{multirow}
+\usepackage{multicol,tabularx,capt-of}
+
+% Include other packages here, before hyperref.
+
+% If you comment hyperref and then uncomment it, you should delete
+% egpaper.aux before re-running latex.  (Or just hit 'q' on the first latex
+% run, let it finish, and you should be clear).
+\usepackage[pagebackref=true,breaklinks=true,colorlinks,bookmarks=false]{hyperref}
+
+
+\def\cvprPaperID{****} % *** Enter the CVPR Paper ID here
+\def\confYear{CVPR 2021}
+%\setcounter{page}{4321} % For final version only
+
+\begin{document}
+
+%%%%%%%%% TITLE
+\title{Customer Review Helpfulness Prediction}
+%\author{Somanshu Singla, Weixiao Zhan, Danial Zuberi}
+% For a paper whose authors are all at the same institution,
+% omit the following lines up until the closing ``}''.
+% Additional authors and addresses can be added with ``\and'',
+% just like the second author.
+% To save space, use either the email address or home page, not both
+
+\maketitle
+
+%%%%%%%%% ABSTRACT
+\begin{abstract}
+This report delves into the "Amazon Review Data (2018)" dataset, focusing on the Software category with over 459,000 reviews. 
+We aim to predict review helpfulness, a crucial factor for platforms like Amazon. 
+Our methodology involves two steps: classifying reviews as helpful or non-helpful, and predicting the number of helpfulness votes as a matrix of how helpful the review is, and could potentially used for ranking reviews.
+
+Through data exploration analysis, we identified significant trends and developed diverse features including handcrafted, text-based (using Bag of Words, TF-IDF, and Word2Vec), and temporal features.
+We employed models like Logistic Regression, Ridge Classifier, Random Forest, Temporal Latent Factor, and Multi-Layer Perceptron (MLP), addressing challenges like class imbalance and model over-fitting. 
+The models demonstrated potential for high accuracy and recall, particularly when combining handcrafted and textual features. In regression analysis, temporal features proved crucial, overshadowing the impact of text embeddings.
+
+The study concludes that accurately predicting review helpfulness is feasible, with significant implications for enhancing e-commerce platforms' customer experience. Future research might focus on refining text feature embeddings and their influence on review helpfulness.
+\end{abstract}
+
+%%%%%%%%% BODY TEXT
+\section{Introduction}
+
+This report will be examining the dataset Amazon Review Data (2018)\cite{amazon}. This dataset is a collection of millions of reviews ranging from May 1996 to October 2018. The dataset is split into many categories; this report will only focus on the Software category as a case study. 
+
+This product category contains 459,436 reviews. Each review has:
+\begin{itemize}
+\item an overall rating
+\item a True or False indicating whether the reviewer is verified
+\item the date of the review
+\item the product 'ASIN' (ID number)
+\item the reviewer ID
+\end{itemize}
+and conditionally contains:
+\begin{itemize}
+\item the 'style' (a dictionary of the product metadata) in 51.01\% of reviews
+\item a review summary in 99.99\% of reviews
+\item review text in 99.98\% of reviews
+\item a number of 'helpfulness' votes in 27.82\% of reviews
+\item an image in 0.33\% of reviews
+\end{itemize}
+
+We have designed a predictive task to identify which of the reviews will be voted as helpful. This can be used by a company like Amazon to boost those reviews it predicts would be helpful to users in order to bring them to the top of the list of reviews, even before they are voted on. We believe that this task is achievable if we can split it into two distinct steps: a classification step in which we first identify whether a review will get any votes. We believe this step is necessary, since most reviews (approx. 72\%) in the dataset get 0 helpfulness votes. The second step of the task is, given that a review will receive at least one helpfulness vote, to predict how many helpfulness votes it will get, which is a regression task. We will explore a variety of techniques for each of these tasks and present our findings below.
+
+\section{Literature Review}
+\subsection{Dataset Introduction and Exploration}
+The origin of this dataset is a paper named "Justifying Recommendations using Distantly-Labeled Reviews and Fine-Grained Aspects" by Ni et al. This paper explored techniques to generate justifications for recommendations that would be meaningful and helpful to the user's decision making when purchasing a product. It did this by annotating sections of text as 'good' or 'bad' recommendations, learning a model, and then extracting terms to try and analyze sentiment which are used to build user and item profiles. This work was able to successfully outperform unpersonalized models that it was compared to\cite{amazon}.
+
+An older version of this dataset was also used in two papers. One called "Ups and Downs" by He et al. used collaborative filtering to model how fashion trends evolve over time. The paper extends the latent factor model we explored in class by adding an extra term $<\theta_{u},\theta_{i}>$. These parameters come from features extracted from product images using a Deep CNN by left-hand multiplying them with a learned embedding matrix. This was further extended by adding a temporal visual bias term, as well as temporally evolving the previously mentioned embedding matrix\cite{He}. The other paper by McAuley et al. explored generating recommendations based on images. It explores generating an F-dimensional feature vector using a CNN and learning a distance function such that objects that are related have lower distances than those that are not. It posits weighted nearest neighbor as a distance function, but deems it not expressive enough to model notions such as style. Instead, it explores the 'Mahalanobis distance' but employs a factorization technique to reduce the dimensionality of the learned parameters. The model achieved over 84\% accuracy in the tests shown in the paper\cite{McAuley}.
+
+\subsection{Similar Datasets}
+
+\subsubsection{Amazon Datasets}
+The dataset which we are using is the 2018 version, in the past the 2014 and 2013 versions of the dataset have also been released. The major change between the datasets from 2014 to 2018 is that in the earlier dataset the helpfulness field used to contain an array [Helpful Votes, Total Votes] and the 2018 version only contains Helpful votes, although we believe that the Total votes could have been a very useful feature we came up with othe heuristics to estimate popularity of product and review.
+Another very popular amazon dataset is the Amazon Q/A dataset \cite{amazon2}, which contains the question-answer data for every product and can be very useful to learn about every product which in turn will affect its reviews.
+
+\subsubsection{Yelp Dataset}
+Many other review data datasets have been used in the past. Yelp is a major one, which has been used to study review helpfulness \cite{zheng}, review rating prediction and fake review detection \cite{arjun} extensively. 
+
+\paragraph
+Other datasets like IMDB reviews and Hotel Reviews have been studied extensively for sentiment analysis and other related problems.
+
+\subsection{Prior Work on Helpfulness Prediction}
+ We are classifying the works into two buckets: Feature Selection focus, Deep Learning focus.
+
+\subsubsection{Feature Selection Focus}
+In their work Singh et al.\cite{singh} explore multiple handcrafted features from review text and use those for the task. Their features were based around the fact that the reviews which are easy to read are more likely to get higher helpful votes, we used a very similar feature in our work as well.
+In Du et al.'s\cite{du} work they explore a much larger umbrella of features like Semantic Features, Sentiment Features, Readability Features, Structure and Syntax. We also implemented Semantic features like TF-IDF, Bag of Words and Word2Vec in great detail. 
+
+\subsubsection{Deep Learning Focus}
+In Ahmad et al.'s work\cite{alsmadi}, they explore the usage of Deep Learning models and LLMs for this task. They have designed Supervised and Semi-supervised algorithms to train the model. The designed CNN, LSTM, BeRT based architectures to solve the problem. 
+In Li et al.'s\cite{li} work they explored CNN model in great detail and proposed a CNN-TRI (CNN-Text Review Interaction) where they have exploited the meta data based features like star rating along with textual features to improve the performance. 
+
+
+\subsection{Conclusion}
+Overall, almost all the papers focus either on the regression task or on the classification task and we believe that our approach to solve this problem is new and robust. After going through the deep learning works we saw that the performance improvement by introducing deep learning based techniques is not substanstial given the complexity they bring so we have tried to focus mainly on Machine Learning based techniques and a very basic deep learning model like MLP.
+
+\section{Data Set Analysis}
+
+We first inspected the dataset and perform an exploratory analysis. Based on the analysis, we then selected the features and the models that will be used to perform the desired prediction task.
+
+\subsection{Data Exploration}
+Our data exploration process involved a comprehensive analysis of review texts and their associated metrics. The analysis provided insights of the data set from various aspects, including review lengths, ratings, helpfulness, and temporal patterns.
+
+\subsubsection{Number of Reviews per Entity}
+We first inspected how interactions cluster by users and items, i.e. the number of reviews per user and per item.
+As shown in Figure \ref{fig:inspection_review_per_entity}, We notice a skewed distribution where a small subset of users and items have a disproportionately high number of reviews.
+The logarithmic transformation on the X axis highlights the heavy-tailed nature of these distributions. 
+Yet, the user interaction are more sparse then items. The median of number of reviews per user is 1, whereas the median of item is 3.
+
+\begin{figure}[h]
+\includegraphics[width=8cm]{images/inspection_review_per_entity.png}
+\caption{Distribution of Number of Review per Entity}
+\label{fig:inspection_review_per_entity}
+\end{figure}
+
+\subsubsection{Temporal and Period}
+\label{sec:temporal_and_period}
+The number of reviews and the number of their votes on each days (Figure \ref{fig:inspection_review_day}) shows periodic spikes in the counts of both reviews and votes, potentially aligning with specific events or promotional activities. There are more reviews and more votes between day 5000 and day 6500, suggesting that Amazon's software sales are trending during this period of time. 
+Despite these, the number of votes per review on each day shows a more interesting trend. As shown in Figure \ref{fig:inspection_vote_day}, older reviews tend to have more votes.
+Older reviews are listed and exposed to users longer so that they get more appreciation from other users. This important insight is exploited in our regression models.
+
+\begin{figure}[h]
+\includegraphics[width=8cm]{images/inspection_review_day.png}
+\caption{Number of votes and reviews on Each Day}
+\label{fig:inspection_review_day}
+\end{figure}
+
+\begin{figure}[h]
+\includegraphics[width=8cm]{images/inspection_vote_day.png}
+\caption{Number of Votes per Review on Each Day}
+\label{fig:inspection_vote_day}
+\end{figure}
+
+In addition to temporal, we also inspected the periodic aspect of the data. As shown in Figure \ref{fig:inspection_weekday}, review helpfulness is mostly equal across weekdays, but
+reviews from Sep. to Jan. tend to be more helpful.
+
+\begin{figure}[h]
+\includegraphics[width=8cm]{images/inspection_weekday.png}
+\includegraphics[width=8cm]{images/inspection_month.png}
+\caption{Helpfulness over Period}
+\label{fig:inspection_weekday}
+\end{figure}
+
+
+\subsubsection{Features over Bayes Rule}
+Lastly, we inspected some features' distributions when given the review's helpfulness, i.e. analyzing $P(x|y)$.
+As shown in Figure \ref{fig:bayse_feature}, \textit{rating}, \textit{verified status}, \textit{review length}, are all shown different distributions. Specifically, helpful reviews are more likely be low rating, from non-verified purchasers, and have longer text.
+
+\begin{figure}[h]
+\includegraphics[width=8cm]{images/inspection_rating.png}
+\includegraphics[width=8cm]{images/inspection_verified.png}
+\includegraphics[width=8cm]{images/inspection_length.png}
+\caption{Feature Distributions given Helpfulness}
+\label{fig:bayse_feature}
+\end{figure}
+
+
+
+\subsection{Feature Engineering}
+We divide the features used in our models into three parts: Handcrafted Features, Text Review Based Features and Temporal Features. \\
+\begin{itemize}
+    \item \textbf{Handcrafted features} are based on the meta data available with the data.
+    \item \textbf{Text review based features} are the features based on the review text provided in the dataset. 
+    \item \textbf{Temporal Features} are used to capture the dependence of data features we care about with time.
+\end{itemize}
+
+
+\subsubsection{Handcrafted Features}
+These features are based on the data analysis displayed above, we used features which we found useful for distinguishing between helpful and non-helpful reviews.
+\begin{itemize}
+    \item \textbf{Verified}: We used the verified label from the data entries as a feature, we use True as 1 and False as 0. 
+    \item \textbf{Length of Review}: We used length of review in integers as a feature.
+    \item \textbf{Readability}: We used Flesch reading ease score, with 100 being the highest score for most readable text and 0 for least readable review. This feature is useful because more readable reviews are more likely to receive helpful votes.
+    \item \textbf{Star Rating}: We used star rating (1-5) as a feature.  
+\end{itemize}
+
+\subsubsection{Text Review based Features}
+We do some standard pre-processing like lower-casing all characters and stop word removal. After this we use the methods described below for feature extraction:
+
+\begin{itemize}
+    \item \textbf{Bag of Words (BoW)}: We used the top-200 words from review text corpus as a vocabulary and used the standard Bag of Words representation as feature.
+    \item \textbf{TF-IDF}: We used the top-200 words from our review text corpus as a vocabulary and used the standard TF-IDF representation as feature.
+    \item \textbf{Word2Vec}: We used a 300-dimension pre-trained Word2Vec representation of words as our starting point. For getting the feature we just averaged the Word2Vec representation of all words in the review.
+\end{itemize}
+
+\subsubsection{Temporal Features}
+The temporal features are based on our findings in section \ref{sec:temporal_and_period}.
+Specifically, we defined a function to capture the votes per review trend over time.
+$$\text{dev}_{a,b}(t) = a \cdot e ^{-bt}$$
+In which, $a$ and $b$ are learned parameters.
+Moreover, we added a periodic bias term to capture the vote difference in weekdays and month.
+$$\{\beta_w | w \in \text{weekdays}\}, \{\beta_m | m \in \text{month}\}$$
+
+\section{Predictive Tasks and Modelling}
+To reiterate, we have picked a combination of two predictive tasks to solve the problem at hand.
+\begin{enumerate}
+    \item Classification of Reviews into Helpful and Non-Helpful.
+    \item Predicting the number of helpful votes a review labelled 'helpful' will receive.
+\end{enumerate}
+
+\subsection{Classification}
+The Goal of this task is that given a review R, we want to classify whether this review is Helpful (label = 1) or Not-Helpful (label = 0). In a real-world setting any review which receives non-zero helpful votes is helpful and all other reviews are not-helpful. This step is necessary due to the sparsity of helpful reviews.
+
+\subsubsection{Class Imbalance}
+In our task we faced the issue of class-imbalance i.e the number of unhelpful reviews were much higher than number of helpful reviews.
+In the Dataset only $28\%$ reviews were helpful. 
+
+This makes learning harder because without some intelligent metrics, our models would learn more about non-helpful reviews whereas for this problem we care about the helpful reviews.
+
+\subsubsection{Basic Models}
+\begin{itemize}
+    \item \textbf{Logistic Regression}: We experimented with logistic regression as our baseline model for the classification task. This model seems a good choice because it converges really fast and is a good starting point. We tuned the regularization parameters by maximizing accuracy on Validation set.
+    \item \textbf{Ridge Classifier}: We tried out Ridge classifier because when using text features, the feature size is very large and strong regularization is needed to prevent over-fitting.
+    \item \textbf{Random Forest}: We tried out random forest because it an ensemble model and for classification tasks ensemble models are known to do well.
+    \item \textbf{MLP}: We tried out MLP model because we wanted to try out deep learning and explore the effect of non-linear activations with MLP.
+\end{itemize}
+
+
+\subsubsection{MLP Architecture}
+
+\paragraph{Model} Unlike the other models, we created our multi layer perceptron in PyTorch. Specifically, we created a model with a configurable number of hidden layers, and with configurable widths for each layer. We implemented early stopping (based on validation error) with patience to stop training when the model stops generalizing properly, but giving the model some extra time to escape local minima. We also implemented an adaptive learning rate to help with hyperparameter search.
+
+\paragraph{Loss Function}To handle the class imbalance issue inherent to the problem we made some adjustment to the loss function:
+
+\begin{equation}
+L(y, \hat{y}) = - \frac{1}{N} \sum_{i=1}^{N} \sum_{j=1}^{C} (w_j \cdot y_{ij} \cdot \log(\hat{y}_{ij})) + \lambda (\sum\limits_{p \in \text{parameters}} \|p\|_2)
+\end{equation}
+
+This is weighted cross-entropy with a configurable L2 regularization hyperparameter. An important design decision was the weight values. We tried multiple combinations, but the one that worked best was:
+
+\begin{equation}
+w_{c} = 1-\dfrac{\sum_{i | y_i=c}^{N} 1}{\sum_{i}^{N} 1}
+\end{equation}
+
+The goal here is to prioritize the class with less representation. Another weight function we tried but that did not provide good results was:
+
+\begin{equation}
+w_{c} = \dfrac{\sum_{i}^{N} 1}{\sum_{i | y_i=c}^{N} 1}
+\end{equation}
+
+\paragraph{Hyperparameters} The main hyperparameters that we searched were different layer configurations and different $L_{2}$ regularization terms. We searched a few configurations for each layer for up to three layers, and searched a logarithmic space of $L_{2}$ regularization values from $10^{-5}$ to $10^{2}$. The accuracy and recall values reported are the maximum sum of recall and accuracy.
+
+
+
+\subsubsection{Evaluation Metrics}
+We used two evaluation metrics:
+\begin{enumerate}
+    \item Accuracy = $\frac{ TP+TN }{TP+TN+FP+FN}$
+    \item Recall = $\frac{TP}{TP+FN}$
+\end{enumerate}
+
+where, TP: True Positives, TN: True Negatives, FP: False Positives, FN: False Negatives.
+\\
+The choice of metrics was based on the fact that we would like our model to predict the true labels as closely as possible and among Helpful/Non-Helpful reviews we care more about Helpful reviews (Positives) and so, a model with high accuracy and recall makes sense.
+
+\subsubsection{Results}
+
+\begin{itemize}
+
+\item Results with handcrafted features
+\begin{center}
+\begin{tabular}{ c c c } 
+\hline
+Model & Accuracy & Recall\\ 
+\hline
+Logistic Regression & 75.9 & 68.2 \\ 
+Ridge Classifier & 74.8 & 68.6 \\
+Random Forest & 74.1 & 76.9 \\
+MLP & 72.8 & 79.1 \\
+\hline
+\end{tabular}
+\end{center}
+
+
+\item Results with textual features
+\begin{center}
+\begin{tabular}{ c c c } 
+\hline
+Model & Accuracy & Recall\\ 
+\hline
+Logistic Regression (BoW) & 74.3 & 65.6 \\ 
+Ridge Classifier (BoW) & 73.5 & 64.3 \\
+Random Forest (BoW) & 71.1 & 65.8 \\
+MLP (BoW) & 72.9 & 75.2 \\
+Logistic Regression (TF-IDF) & 71.7 & 75.0 \\ 
+Ridge Classifier (TF-IDF) & 71.9 & 74.5 \\
+Random Forest (TF-IDF) & 70.8 & 65.9 \\
+MLP (TF-IDF) & 71.7 & 76.8 \\
+Logistic Regression (Word2Vec) & 67.9 & 81.8 \\ 
+Ridge Classifier (Word2Vec) & 66.8 & 81.8 \\
+Random Forest (Word2Vec) & 66.2 & 83.0 \\
+MLP (Word2Vec) & 65.0 & 82.9 \\
+\hline
+\end{tabular}
+\end{center}
+
+
+\item Results with handcrafted + textual features
+\begin{center}
+\begin{tabular}{ c c c } 
+\hline
+Model & Accuracy & Recall\\ 
+\hline
+Logistic Regression (Word2Vec) & 73.8 & 73.9 \\ 
+\textbf{Ridge Classifier (Word2Vec)} & \textbf{73.8} & \textbf{76.6} \\
+Random Forest (Word2Vec) & 70.8 & 81.6 \\
+MLP (Word2Vec) & 69.1 & 78.4 \\
+\textbf{Logistic Regression (TF-IDF)} & \textbf{74.7} & \textbf{74.6} \\ 
+Ridge Classifier (TF-IDF) & 74.6 & 74.7 \\
+Random Forest (TF-IDF) & 72.7 & 77.8 \\
+MLP (TF-IDF) & 69.7 & 77.6 \\
+\hline
+\end{tabular}
+\end{center}
+\end{itemize}
+
+\subsection{Regression}
+
+\subsubsection{Models}
+To predict how helpful a review can be, six models were trained. These models were trained only on the reviews that had a nonzero number of helpfulness votes.
+\begin{itemize}
+\item \textbf{Bias model:} $\alpha + \beta_u + \beta_i$
+\item \textbf{Latent factor model:} $\alpha + \beta_u + \beta_i + \gamma_u \cdot \gamma_i$
+\item \textbf{Temporal bias model:} \\
+$\alpha + \left( \beta_u + \text{dev}_u(t)\right)+ \left(\beta_i + \beta_{i,weekday} + \beta_{i,month} \right)$
+\item \textbf{Temporal latent factor model:}\\
+$\alpha + \left( \beta_u + \text{dev}_u(t)\right)+ \left(\beta_i + \beta_{i,weekday} + \beta_{i,month} \right) + \gamma_u \cdot \gamma_i(t)$
+
+\item \textbf{Word2vec MLP:}\\
+The model first transfrom $u$ and $i$ into embedding, then concatenate them with $\text{dev}(t)$, weekdays, month, verified, review length, and a 300 dim word2vec feature of the review text.
+Lastly, supply the concatenated vector to a three layer neural network with only one node in the output layer.
+
+\item \textbf{Tfidf MLP:}\\
+The structure of this model is exactly the same as word2vec MLP, except now supplying tfidf vector instead of word2vec vector.
+\end{itemize}
+
+\subsubsection{Training}
+The training objective, i.e. the loss function, is:
+$$loss = MSE + \lambda (\sum\limits_{p \in \text{parameters}} \|p\|_2)$$
+for all models.
+The data set is split 8:1:1 into train, validation, and test sets. 
+Since we are able to fit all of our data in memory, no batching was used.
+The training loop implemented early stopping when the $MSE$ of the validation set started to increase to prevent over-fitting.
+Hyper-parameters, such as $\lambda$, embedding dimensions, and hidden node size were searched with 5-fold cross-validation. Figure \ref{fig:regression_training}, shows the training process of the models with best hyper-parameters.
+
+\begin{figure*}[ht]
+    \centering
+    % First Row
+    \begin{minipage}{0.3\textwidth}
+        \includegraphics[width=\linewidth]{images/regression_bias.png}
+        \caption*{Bias}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.3\textwidth}
+        \includegraphics[width=\linewidth]{images/regression_temporal_bias.png}
+        \caption*{Temporal Bias}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.3\textwidth}
+        \includegraphics[width=\linewidth]{images/regression_tfidf.png}
+        \caption*{tfidf MLP}
+    \end{minipage}
+    
+    \begin{minipage}{0.3\textwidth}
+        \includegraphics[width=\linewidth]{images/regression_latent.png}
+        \caption*{Latent Factor}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.3\textwidth}
+        \includegraphics[width=\linewidth]{images/regression_temporal_latent.png}
+        \caption*{Temporal Latent Factor}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.3\textwidth}
+        \includegraphics[width=\linewidth]{images/regression_word2vec.png}
+        \caption*{Word2Vec MLP}
+    \end{minipage}
+    \caption{Training Process}
+    \label{fig:regression_training}
+\end{figure*}
+
+\begin{figure}[h]
+\includegraphics[width=8cm]{images/regression_performance.png}
+\caption{Regression Performance and Model Size }
+\label{fig:regression_performance}
+\end{figure}
+
+\subsubsection{Results}
+Figure \ref{fig:regression_performance} shows each model's performance ($MSE$ on test set) with respect to the model's parameter size.
+We noticed:
+\begin{enumerate}
+\item adding the temporal features leads to the most significant improvement;
+\item adding latent factors does improve model's performance slightly, but less significant than the temporal factors;
+\item tfidf is a better text vectorization method than word2vec in our application. The averaging operation in word2vec may averaged out the feature of important words. 
+\end{enumerate}
+
+Overall, our best model's prediction can predict how many vote a review may has, i.e. how helpful the review is, at $MSE \sim 0.12$, which, in non-log space, is roughly a 25\% error.
+
+
+\newpage
+\section{Conclusion}
+
+\subsection{Handcrafted Feature Importance}
+
+We used the coefficients of the learned model to estimate the feature importance and found that verified was the most important handcrafted feature. In Figure \ref{fig:bayse_feature}, we learned that an unverified user is more likely to create a helpful review. According to Amazon, verified reviews just indicate that a user has purchased the product on Amazon, so it seems like we should expect the opposite. Rating and Review length are also quite important for predicting whether a review is helpful. These distributions are less surprising, but also very clearly diverge between classes.
+
+\begin{figure}[H]
+\begin{center}
+\includegraphics[width=0.45\textwidth]{images/feature_importance.png}
+\end{center}
+   \caption{Importance of Various Handcrafted Features}
+\label{fig:imp_features}
+\end{figure}
+
+\subsection{Feature Visualization}
+
+We used Principal Components Analysis to plot the features used by our models in 2D. As visible from the plot using the features we have presented in our models in this work can identify a boundary with which we can identify most of our helpful reviews and discard a good chunk of unhelpful reviews.  \\
+The plot acts as additional evidence of the fact that using the features we have designed our classification model can predict helpfulness of a review reasonably accurately. However, it also informs us that the classes do bleed into one another to some extent. This makes us believe that our result for accuracy and recall between 70-80\% is a good result based on the problem we are trying to solve and the features we are using.
+
+\begin{figure}[H]
+\begin{center}
+\includegraphics[width=0.45\textwidth]{images/pca_visual.png}
+\end{center}
+   \caption{Plot of feature space in 2D using PCA}
+\label{fig:pca_features}
+\end{figure}
+
+\subsection{Summary of Results}
+
+
+The results above show that we can achieve over 75\% accuracy and over 80\% recall in the best cases. Of course, there is a balance between recall and accuracy to be achieved. It seems like the most balanced result was about 74.1\% accuracy and 76.9\% recall, which was achieved with just the handcrafted features by the Random Forest classifier. The actual best choice of model, however, would be determined by how it is used. It may be better to choose the MLP model that achieved 72\% accuracy and 79\% recall, since one may decide that it would be more useful than a slightly higher accuracy. We imagine that this recommendation system could be used to boost reviews before they receive any helpfulness votes. A company like Amazon could also use more data to solve this same problem, possibly allowing them to find a more accurate model. Since we only tested 3-layer deep neural networks, a deeper network would likely be able to outperform it. With a limited amount of data, it would be infeasible to train so many parameters at once. However, on an industrial scale, Amazon would have many times as much data as we have used for our models if they even just used all categories from the same dataset.
+
+A sensible use of these models would be to temporarily boost the review, say for one month, after it is posted. If that review doesn't receive any helpfulness votes in that time, it would be removed from the list of boosted reviews. The boosted reviews could also be sorted by the results of our regression model. Especially since the most highly-voted reviews are the oldest ones, we believe this is important to bring users recent reviews. Products, especially on a huge platform like Amazon, may go through multiple revisions in the same listing, so the feedback from a few years ago may not fully apply to a user currently buying a product. Our best regression model can achieve approximately a 25\% error on helpfulness, which we believe to be a significant result. Many reviews either have a large amount of helpfulness votes, or very few. A 25\% error would allow us to preserve which of those buckets a review may fall into after we predict that it would be perceived as helpful. This result would also allow us to further filter out the approximately 25\% of reviews that are misclassified as helpful, since they would likely be predicted as only slightly helpful. Our hope is also that most misclassified reviews only have a small number of helpful votes, and that if we create a cutoff for expected number of reviews we can filter out the rest of the misclassified unhelpful reviews..
+
+Another thing to note is that, at least for classification, it doesn't seem like adding many extra dimensions in the form of text features proved to be very useful over just using our handcrafted features. Our handcrafted features did, however, include metrics of readability and review length which was directly related to the content of the text. These metrics appear to have captured a high amount of the information embedded in the text. Further work could examine tuning the length of the embedding for each type of textual feature. Including word2vec features especially reduced the performance of our model, possibly due to the averaging technique we used. This result is further confirmed by our regression results, where the text embeddings-based models performed the worst. In the case of regression, the most important additional feature over per-user and per-item bias was the temporal feature.
+
+
+
+{\small
+\bibliographystyle{unsrt}
+\bibliographystyle{ieee_fullname}
+\bibliography{egbib}
+}
+
+\end{document}
