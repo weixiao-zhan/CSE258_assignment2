@@ -7,3 +7,4 @@ cc.en.300.bin
 *.pickle
 *.ckpt
 *.png
+*.json
